@@ -1,5 +1,6 @@
 import lxml.html
 import requests
+import math
 from textblob import TextBlob
 import pandas as pd
 import nltk
@@ -18,34 +19,69 @@ if (not os.environ.get('PYTHONHTTPVERIFY', '') and getattr(ssl, '_create_unverif
 
 #print data
 
-search_term = "Compliance analyst"
-url = 'https://www.linkedin.com/jobs/search?keywords=' + search_term + '&location=Canada&f_TP=1'
+search_term = "quantitative developer"
+#url = 'https://www.linkedin.com/jobs/search?keywords=' + search_term + '&location=Canada&f_TP=1&f_TPR=r604800'
+url = 'https://www.linkedin.com/jobs/search?keywords=' + search_term + '&location=Canada'
 r = requests.get(url)
-#print(r.text)
+print(r.text)
 
 doc = lxml.html.document_fromstring(r.text)
-#print doc
+#print(doc)
 
-el_company = doc.xpath("//div[@class='artdeco-entity-lockup__subtitle ember-view']/a/text()")
-el_job_title = doc.xpath("//div[@class='full-width artdeco-entity-lockup__title ember-view']/a")
+job_result_count_text = doc.xpath("//span[@class='results-context-header__job-count']/text()")
+job_result_count = int(job_result_count_text[0])
+print(job_result_count)
 
-el_job_post = doc.xpath("//div[@class='flex-grow-1 artdeco-entity-lockup__content ember-view']/div/a/text()")
-el_job_href = doc.xpath("//div[@class='flex-grow-1 artdeco-entity-lockup__content ember-view']/div/a")
+pages = [i*25 for i in range(math.floor(job_result_count/25))]
 
-el_job_post2 = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/a/span/text()")
-el_job_href2 = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/a")
-el_job_company = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h4/a/text()")
-el_job_company_url = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h4/a")
-el_job_title = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h3/text()")
-el_job_location = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/div/span/text()")
+#&start=25
+el_job_all = []
+el_company = []
+el_job_title = []
+el_job_post = []
+el_job_href = []
+el_job_post2 = []
+el_job_href2 = []
+el_job_company = []
+el_job_company_url = []
+el_job_title = []
+el_job_location = []
+el_company = []
+el_job_title = []
+el_job_post = []
+el_job_href = []
+el_job_post2 = []
+el_job_href2 = []
+el_job_company = []
+el_job_company_url = []
+el_job_title = []
+el_job_location = []
 
-el_job_all = list(zip([e.strip() for e in el_job_title], [e.strip() for e in el_job_location], [e.attrib['href'] for e in el_job_href2], [e.strip() for e in el_job_company], [e.attrib['href'] for e in el_job_company_url]))
+for page in pages:
+    url = 'https://www.linkedin.com/jobs/search?keywords=' + search_term + '&location=Canada&start=' + str(page)
+    r = requests.get(url)
+    doc = lxml.html.document_fromstring(r.text)
+
+    el_company = doc.xpath("//div[@class='artdeco-entity-lockup__subtitle ember-view']/a/text()")
+    el_job_title = doc.xpath("//div[@class='full-width artdeco-entity-lockup__title ember-view']/a")
+
+    el_job_post = doc.xpath("//div[@class='flex-grow-1 artdeco-entity-lockup__content ember-view']/div/a/text()")
+    el_job_href = doc.xpath("//div[@class='flex-grow-1 artdeco-entity-lockup__content ember-view']/div/a")
+
+    el_job_post2 = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/a/span/text()")
+    el_job_href2 = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/a")
+    el_job_company = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h4/a/text()")
+    el_job_company_url = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h4/a")
+    el_job_title = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h3/text()")
+    el_job_location = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/div/span/text()")
+
+    el_job_all = el_job_all + list(zip([e.strip() for e in el_job_title], [e.strip() for e in el_job_location], [e.attrib['href'] for e in el_job_href2], [e.strip() for e in el_job_company], [e.attrib['href'] for e in el_job_company_url]))
+
 tag_all = []
 
 all_desc = ''
 
 for e in list(el_job_all):
-    #print(e)
     r = requests.get(e[2])
     #print(r.text)
     doc = lxml.html.document_fromstring(r.text)
@@ -81,8 +117,14 @@ plt.imshow(wordcloud)
 plt.axis("off")
 plt.tight_layout(pad=0)
 
-#plt.show()
 plt.savefig("wordcloud_"+search_term+".jpg")
+
+
+#########################################
+
+
+#plt.show()
+
 #for e in el_job_href:
     #print e.attrib['href']
 
