@@ -2,15 +2,21 @@ import lxml.html
 import requests
 import math
 from textblob import TextBlob
-import pandas as pd
 import nltk
 from wordcloud import WordCloud, STOPWORDS
 import matplotlib.pyplot as plt
 import pandas as pd
-nltk.download('punkt')
-nltk.download('averaged_perceptron_tagger')
-nltk.download('brown')
+import datetime as dt
+import hashlib
+#nltk.download('punkt')
+#nltk.download('averaged_perceptron_tagger')
+#nltk.download('brown')
 import os, ssl
+import boto3
+s3_resource = boto3.resource('s3')
+s3_client = boto3.client('s3')
+dynamodb = boto3.resource('dynamodb')
+
 if (not os.environ.get('PYTHONHTTPVERIFY', '') and getattr(ssl, '_create_unverified_context', None)):
     ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -75,14 +81,14 @@ for page in pages:
     el_job_title = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/h3/text()")
     el_job_location = doc.xpath("//li[@class='result-card job-result-card result-card--with-hover-state']/div/div/span/text()")
 
-    el_job_all = el_job_all + list(zip([e.strip() for e in el_job_title], [e.strip() for e in el_job_location], [e.attrib['href'] for e in el_job_href2], [e.strip() for e in el_job_company], [e.attrib['href'] for e in el_job_company_url]))
+    el_job_all = el_job_all + list(zip([str(dt.datetime.now()) for e in el_job_href2], [abs(hash(e.attrib['href'])) % (10 ** 8) for e in el_job_href2], [e.strip() for e in el_job_title], [e.strip() for e in el_job_location], [e.attrib['href'] for e in el_job_href2], [e.strip() for e in el_job_company], [e.attrib['href'] for e in el_job_company_url]))
 
 tag_all = []
 
 all_desc = ''
 
 for e in list(el_job_all):
-    r = requests.get(e[2])
+    r = requests.get(e[4])
     #print(r.text)
     doc = lxml.html.document_fromstring(r.text)
     desc = ' '.join(doc.xpath("//div[@class='show-more-less-html__markup show-more-less-html__markup--clamp-after-5']/text()"))
@@ -102,8 +108,12 @@ grsum = df_noun.groupby('word').count()
 grsum = grsum.sort_values('tag')
 grsum.to_csv('job_keyword_summary_' + search_term + '.csv')
 print(el_job_all)
-df_job = pd.DataFrame(el_job_all, columns=['job_title', 'location', 'job_url', 'company_name', 'company_url'])
+df_job = pd.DataFrame(el_job_all, columns=['available_time','job_id', 'job_title', 'location', 'job_url', 'company_name', 'company_url'])
 df_job.to_csv('job_list_' + search_term + '.csv')
+df_job_json = df_job.T.to_dict().values()
+dynamoTable = dynamodb.Table('jobmaxtable')
+for job in df_job_json:
+    dynamoTable.put_item(Item=job)
 
 stopwords = set(STOPWORDS)
 wordcloud = WordCloud(width=800, height=800,
@@ -117,7 +127,10 @@ plt.imshow(wordcloud)
 plt.axis("off")
 plt.tight_layout(pad=0)
 
-plt.savefig("wordcloud_"+search_term+".jpg")
+wc_filename="wordcloud_"+search_term+"_"+str(dt.date.today())+".jpg"
+plt.savefig(wc_filename)
+s3_client.upload_file(Filename=wc_filename, Bucket="jobmaxresults", Key=wc_filename)
+
 
 
 #########################################
